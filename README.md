@@ -1,93 +1,55 @@
-# Laravel RBAC Template
+# Laravel RBAC
 
-A scalable, production-ready Role-Based Access Control (RBAC) template built with Laravel 12. Designed to be easily integrated into any project with built-in Socialite authentication, activity logging, and a professional admin panel powered by Mazer.
+A flexible Role-Based Access Control (RBAC) package for Laravel with roles, permissions, caching, and Blade directives.
 
-## Features
-
-- **Multi-Role System** — Users can have multiple roles simultaneously
-- **Hierarchical Roles** — Roles have levels (Super Admin > Admin > Manager > Editor > User)
-- **Module-based Permissions** — Permissions grouped by module (e.g., `users.create`, `posts.delete`)
-- **Direct Permission Assignment** — Assign permissions directly to users, bypassing roles
-- **Super Admin Bypass** — Super admin role automatically bypasses all permission checks
-- **Policy-based Authorization** — Laravel Policies integrated with RBAC permissions
-- **Socialite Integration** — Pre-configured Google & GitHub login (easily extendable)
-- **Activity Log & Audit Trail** — Track all changes with Spatie Activity Log
-- **Admin Panel** — Professional admin UI with [Mazer](https://github.com/zuramai/mazer) (Bootstrap 5)
-- **API Ready** — Laravel Sanctum for token-based API authentication with RBAC middleware
-- **Caching** — Built-in role/permission caching with automatic invalidation
-- **Blade Directives** — `@role`, `@permission`, `@superadmin` directives
-- **Middleware** — `role:admin`, `permission:users.create` route middleware
-- **Form Request Validation** — Dedicated request classes for all admin operations
-- **Rate Limiting** — Built-in throttle on authentication routes
-- **Feature Tests** — Comprehensive test suite for roles, permissions, middleware, and API
-- **Artisan Commands** — Quick setup with `php artisan rbac:setup`
-
-## Requirements
-
-- PHP 8.2+
-- Composer
-- SQLite / MySQL / PostgreSQL
-- Node.js (optional, for frontend asset compilation)
-
-## Quick Start
+## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/zedlcompany/laravel-rbac.git
-cd laravel-rbac
-
-# Install dependencies
-composer install
-
-# Copy environment file
-cp .env.example .env
-
-# Generate application key
-php artisan key:generate
-
-# Run the RBAC setup (migrations + seeders + admin user)
-php artisan rbac:setup
-
-# Start the development server
-php artisan serve
+composer require zedlcompany/laravel-rbac
 ```
 
-**Default Admin Credentials:**
+## Publish Config & Migrations
 
-- Email: `admin@example.com`
-- Password: `password`
+```bash
+php artisan vendor:publish --tag=rbac-config
+php artisan vendor:publish --tag=rbac-migrations
+php artisan migrate
+```
+
+## Setup
+
+Add the traits to your `User` model:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Zedlcompany\LaravelRbac\Contracts\HasPermissionsInterface;
+use Zedlcompany\LaravelRbac\Contracts\HasRolesInterface;
+use Zedlcompany\LaravelRbac\Traits\HasPermissions;
+use Zedlcompany\LaravelRbac\Traits\HasRoles;
+
+class User extends Authenticatable implements HasRolesInterface, HasPermissionsInterface
+{
+    use HasRoles, HasPermissions;
+}
+```
 
 ## Configuration
 
-All RBAC settings are in `config/rbac.php`:
+After publishing, edit `config/rbac.php`:
 
 ```php
 return [
+    'user_model' => App\Models\User::class,
     'default_role' => 'user',
     'super_admin_role' => 'super-admin',
-
-    'socialite' => [
-        'enabled' => true,
-        'default_role' => 'user',
-        'auto_register' => true,
-        'providers' => ['google', 'github'],
-    ],
-
     'cache' => [
-        'enabled' => true,
+        'enabled' => env('RBAC_CACHE_ENABLED', true),
         'ttl' => 3600,
         'prefix' => 'rbac_',
-    ],
-
-    'activity_log' => [
-        'enabled' => true,
-        'log_name' => 'rbac',
-    ],
-
-    'admin' => [
-        'prefix' => 'admin',
-        'middleware' => ['web', 'auth', 'role:super-admin|admin'],
-        'per_page' => 15,
     ],
 ];
 ```
@@ -97,51 +59,42 @@ return [
 ### Assigning Roles
 
 ```php
-// Assign a role
 $user->assignRole('admin');
-$user->assignRole('editor', 'manager');
-
-// Remove a role
+$user->assignRole('admin', 'editor');
 $user->removeRole('editor');
-
-// Sync roles (replaces all existing)
-$user->syncRoles(['admin', 'editor']);
-
-// Check role
-$user->hasRole('admin');           // true/false
-$user->hasRole('admin|editor');    // has any
-$user->hasAllRoles(['admin', 'editor']); // has all
-$user->isSuperAdmin();             // true/false
-$user->getRoleLevel();             // highest level (int)
+$user->syncRoles(['admin', 'manager']);
 ```
 
-### Working with Permissions
+### Checking Roles
 
 ```php
-// Give direct permission
-$user->givePermission('users.create');
+$user->hasRole('admin');           // single role
+$user->hasRole('admin|editor');    // any of these roles
+$user->hasAllRoles(['admin', 'editor']); // all roles
+$user->isSuperAdmin();
+```
 
-// Revoke permission
+### Assigning Permissions
+
+```php
+// Direct permissions to user
+$user->givePermission('users.create');
 $user->revokePermission('users.create');
 
-// Check permission (checks roles + direct)
-$user->hasPermission('users.create');
-$user->hasPermission('users.create|users.edit'); // has any
-$user->hasAllPermissions(['users.create', 'users.edit']);
-
-// Get all permissions
-$user->getAllPermissions();
-$user->getPermissionsByModule();
+// Permissions to role
+$role->givePermission('users.create', 'users.edit');
+$role->revokePermission('users.delete');
+$role->syncPermissions(['users.view', 'users.create']);
 ```
 
-### Role Permissions
+### Checking Permissions
 
 ```php
-// Assign permissions to a role
-$role = Role::where('slug', 'editor')->first();
-$role->givePermission('posts.create', 'posts.edit');
-$role->syncPermissions(['posts.create', 'posts.edit', 'posts.delete']);
-$role->revokePermission('posts.delete');
+$user->hasPermission('users.create');
+$user->hasPermission('users.create|users.edit'); // any
+$user->hasAllPermissions(['users.create', 'users.edit']); // all
+$user->getAllPermissions();
+$user->getPermissionsByModule();
 ```
 
 ### Middleware
@@ -149,15 +102,16 @@ $role->revokePermission('posts.delete');
 ```php
 // In routes
 Route::middleware('role:admin')->group(function () {
-    // Only admin can access
+    // ...
 });
 
 Route::middleware('permission:users.create')->group(function () {
-    // Only users with 'users.create' permission
+    // ...
 });
 
+// Multiple roles (any)
 Route::middleware('role:admin|manager')->group(function () {
-    // Admin OR Manager can access
+    // ...
 });
 ```
 
@@ -165,317 +119,50 @@ Route::middleware('role:admin|manager')->group(function () {
 
 ```blade
 @role('admin')
-    <p>You are an admin!</p>
+    <p>You are an admin</p>
 @endrole
 
 @permission('users.create')
-    <a href="/users/create">Create User</a>
+    <button>Create User</button>
 @endpermission
 
-@superadmin
-    <p>Full system access</p>
-@endsuperadmin
-
 @anyrole(['admin', 'manager'])
-    <p>Admin or Manager content</p>
+    <p>You are admin or manager</p>
 @endanyrole
+
+@allroles(['admin', 'manager'])
+    <p>You have both roles</p>
+@endallroles
+
+@superadmin
+    <p>You are super admin</p>
+@endsuperadmin
 ```
 
-### Policies
+### Super Admin
 
-The template includes Laravel Policies that integrate with the RBAC system:
+Users with the `super-admin` role (configurable) automatically bypass all permission checks and Gate checks.
+
+### Caching
+
+Roles and permissions are cached per-user. Cache is automatically cleared when:
+
+- A user's roles or permissions are modified
+- A role is updated or deleted
+- Role permissions are synced
+
+You can manually clear cache:
 
 ```php
-// In controllers
-$this->authorize('viewAny', User::class);
-$this->authorize('update', $user);
-$this->authorize('delete', $role);
-
-// In Blade
-@can('update', $user)
-    <a href="{{ route('admin.users.edit', $user) }}">Edit</a>
-@endcan
-
-// Super admin automatically bypasses all policy checks via Gate::before()
+$user->clearRbacCache();
 ```
 
-### Contracts/Interfaces
-
-The template provides interfaces for type-hinting:
-
-```php
-use App\Contracts\HasRolesInterface;
-use App\Contracts\HasPermissionsInterface;
-
-// Your User model implements both
-class User extends Authenticatable implements HasRolesInterface, HasPermissionsInterface
-{
-    use HasRoles, HasPermissions;
-}
-```
-
-## API Authentication
-
-This template includes Laravel Sanctum with RBAC-protected API routes:
-
-```bash
-# Available API endpoints (requires Bearer token)
-GET /api/user              # Current user profile with roles
-GET /api/user/permissions  # User's permissions and roles list
-
-# Admin API (requires admin role)
-GET /api/admin/users       # List users (paginated)
-GET /api/admin/roles       # List roles with permissions
-GET /api/admin/permissions # List permissions grouped by module
-```
-
-```php
-// Create a token
-$token = $user->createToken('api-token')->plainTextToken;
-
-// Use in requests
-Authorization: Bearer {token}
-```
-
-## Socialite Setup
-
-### Google
-
-1. Create OAuth credentials at [Google Cloud Console](https://console.cloud.google.com/)
-2. Add to `.env`:
+Or disable caching via environment variable:
 
 ```env
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=${APP_URL}/auth/google/callback
+RBAC_CACHE_ENABLED=false
 ```
-
-### GitHub
-
-1. Create OAuth App at [GitHub Developer Settings](https://github.com/settings/developers)
-2. Add to `.env`:
-
-```env
-GITHUB_CLIENT_ID=your-client-id
-GITHUB_CLIENT_SECRET=your-client-secret
-GITHUB_REDIRECT_URI=${APP_URL}/auth/github/callback
-```
-
-### Adding More Providers
-
-1. Add the provider to `config/rbac.php`:
-
-```php
-'socialite' => [
-    'providers' => ['google', 'github', 'facebook'],
-],
-```
-
-2. Add credentials to `config/services.php`:
-
-```php
-'facebook' => [
-    'client_id' => env('FACEBOOK_CLIENT_ID'),
-    'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
-    'redirect' => env('FACEBOOK_REDIRECT_URI'),
-],
-```
-
-3. Install the provider package if needed.
-
-### Login URLs
-
-```
-GET /auth/google/redirect   → Redirects to Google
-GET /auth/google/callback   → Handles callback
-GET /auth/github/redirect   → Redirects to GitHub
-GET /auth/github/callback   → Handles callback
-```
-
-## Admin Panel
-
-Access the admin panel at `/admin` (requires `super-admin` or `admin` role).
-
-The admin panel uses [Mazer](https://github.com/zuramai/mazer) — a free Bootstrap 5 admin dashboard template with:
-
-- Responsive sidebar navigation
-- Dark mode support
-- Clean card-based layouts
-- Bootstrap Icons
-
-### Features:
-
-- **Dashboard** — Overview stats and recent activity
-- **Users** — CRUD, role assignment, search & filter
-- **Roles** — CRUD, permission assignment, hierarchical levels
-- **Permissions** — CRUD, module-based grouping
-- **Activity Log** — Full audit trail with filtering
-
-## Architecture
-
-```
-app/
-├── Console/Commands/RbacSetup.php      # Setup artisan command
-├── Contracts/                          # Interfaces
-│   ├── HasPermissionsInterface.php
-│   └── HasRolesInterface.php
-├── Http/
-│   ├── Controllers/
-│   │   ├── Admin/                      # Admin CRUD controllers
-│   │   └── Auth/                       # Auth + Socialite controllers
-│   ├── Middleware/
-│   │   ├── CheckPermission.php
-│   │   └── CheckRole.php
-│   └── Requests/Admin/                 # Form Request validation
-├── Models/
-│   ├── Permission.php
-│   ├── Role.php
-│   └── User.php
-├── Observers/RoleObserver.php          # Cache invalidation
-├── Policies/                           # Authorization policies
-│   ├── PermissionPolicy.php
-│   ├── RolePolicy.php
-│   └── UserPolicy.php
-├── Providers/RbacServiceProvider.php   # Middleware, policies, directives
-└── Traits/
-    ├── HasPermissions.php
-    └── HasRoles.php
-```
-
-## Database Structure
-
-```
-users
-├── id, name, email, password, avatar, provider, provider_id
-├── email_verified_at, remember_token, timestamps
-
-roles
-├── id, name, slug, description, level, is_active, timestamps
-
-permissions
-├── id, name, slug, description, module, timestamps
-
-role_user (pivot)
-├── id, role_id, user_id, timestamps
-
-permission_role (pivot)
-├── id, permission_id, role_id, timestamps
-
-permission_user (pivot)
-├── id, permission_id, user_id, timestamps
-
-activity_log (spatie)
-├── id, log_name, description, subject_type, subject_id
-├── causer_type, causer_id, properties, event, batch_uuid, timestamps
-```
-
-## Default Roles
-
-| Role        | Slug          | Level | Description                                |
-| ----------- | ------------- | ----- | ------------------------------------------ |
-| Super Admin | `super-admin` | 100   | Full system access, bypasses all checks    |
-| Admin       | `admin`       | 80    | Administrative access with all permissions |
-| Manager     | `manager`     | 60    | Management level with limited permissions  |
-| Editor      | `editor`      | 40    | Content editing access                     |
-| User        | `user`        | 10    | Standard user access                       |
-
-## Artisan Commands
-
-```bash
-# Full setup (migrations + seeds + admin user)
-php artisan rbac:setup
-
-# Fresh setup (drops all tables first)
-php artisan rbac:setup --fresh
-
-# Custom admin credentials
-php artisan rbac:setup --admin-email=admin@myapp.com --admin-password=secret123
-```
-
-## Testing
-
-```bash
-# Run all tests
-php artisan test
-
-# Run specific test files
-php artisan test --filter=RoleTest
-php artisan test --filter=PermissionTest
-php artisan test --filter=MiddlewareTest
-php artisan test --filter=ApiAuthTest
-```
-
-### Test Coverage:
-
-- **RoleTest** — Role assignment, removal, sync, pipe-separator check, level, inactive roles
-- **PermissionTest** — Direct permissions, role permissions, super admin bypass, module grouping
-- **MiddlewareTest** — Role/permission middleware blocking, guest redirect, throttle
-- **ApiAuthTest** — Sanctum authentication, admin API access control
-
-## Extending
-
-### Adding New Permissions
-
-Add to `database/seeders/PermissionSeeder.php`:
-
-```php
-['name' => 'Create Posts', 'slug' => 'posts.create', 'module' => 'posts', 'description' => 'Create new posts'],
-['name' => 'Edit Posts', 'slug' => 'posts.edit', 'module' => 'posts', 'description' => 'Edit existing posts'],
-```
-
-Then run: `php artisan db:seed --class=PermissionSeeder`
-
-### Adding New Roles
-
-Add to `database/seeders/RoleSeeder.php`:
-
-```php
-[
-    'name' => 'Content Manager',
-    'slug' => 'content-manager',
-    'description' => 'Manages all content',
-    'level' => 50,
-    'is_active' => true,
-],
-```
-
-### Custom Middleware
-
-You can combine roles and permissions:
-
-```php
-Route::middleware(['auth', 'role:admin', 'permission:users.create'])->group(function () {
-    // Must be admin AND have users.create permission
-});
-```
-
-### Cache Invalidation
-
-Cache is automatically invalidated when:
-
-- A user's roles are changed (`assignRole`, `removeRole`, `syncRoles`)
-- A user's direct permissions are changed (`givePermission`, `revokePermission`)
-- A role is updated or deleted (via `RoleObserver`)
-- A role's permissions are synced (via `RoleObserver::clearCacheForRole()`)
-
-## Tech Stack
-
-- **Laravel 12** — PHP Framework
-- **Mazer** — Bootstrap 5 Admin Dashboard (admin panel)
-- **Tailwind CSS** — Utility-first CSS (frontend/public pages via Vite)
-- **Laravel Socialite** — Social authentication
-- **Laravel Sanctum** — API authentication
-- **Spatie Activity Log** — Audit trail
-- **PHPUnit** — Testing framework
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
-This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT

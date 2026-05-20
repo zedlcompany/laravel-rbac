@@ -4,6 +4,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | User Model
+    |--------------------------------------------------------------------------
+    |
+    | The user model class used by the RBAC system.
+    |
+    */
+    'user_model' => App\Models\User::class,
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Role
     |--------------------------------------------------------------------------
     |
@@ -24,21 +34,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Socialite Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for social login integration.
-    |
-    */
-    'socialite' => [
-        'enabled' => env('SOCIALITE_ENABLED', true),
-        'default_role' => 'user',
-        'auto_register' => true,
-        'providers' => ['google', 'github'],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Cache Configuration
     |--------------------------------------------------------------------------
     |
@@ -49,33 +44,6 @@ return [
         'enabled' => env('RBAC_CACHE_ENABLED', true),
         'ttl' => 3600, // seconds
         'prefix' => 'rbac_',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Activity Log
-    |--------------------------------------------------------------------------
-    |
-    | Enable or disable activity logging for RBAC operations.
-    |
-    */
-    'activity_log' => [
-        'enabled' => env('RBAC_ACTIVITY_LOG_ENABLED', true),
-        'log_name' => 'rbac',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Admin Panel
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for the admin panel.
-    |
-    */
-    'admin' => [
-        'prefix' => 'admin',
-        'middleware' => ['web', 'auth', 'role:super-admin|admin'],
-        'per_page' => 15,
     ],
 
 ];
