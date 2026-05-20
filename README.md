@@ -1,6 +1,6 @@
 # Laravel RBAC Template
 
-A scalable, production-ready Role-Based Access Control (RBAC) template built with Laravel 12. Designed to be easily integrated into any project with built-in Socialite authentication, activity logging, and a clean admin panel.
+A scalable, production-ready Role-Based Access Control (RBAC) template built with Laravel 12. Designed to be easily integrated into any project with built-in Socialite authentication, activity logging, and a professional admin panel powered by Mazer.
 
 ## Features
 
@@ -9,13 +9,17 @@ A scalable, production-ready Role-Based Access Control (RBAC) template built wit
 - **Module-based Permissions** — Permissions grouped by module (e.g., `users.create`, `posts.delete`)
 - **Direct Permission Assignment** — Assign permissions directly to users, bypassing roles
 - **Super Admin Bypass** — Super admin role automatically bypasses all permission checks
+- **Policy-based Authorization** — Laravel Policies integrated with RBAC permissions
 - **Socialite Integration** — Pre-configured Google & GitHub login (easily extendable)
 - **Activity Log & Audit Trail** — Track all changes with Spatie Activity Log
-- **Admin Panel** — Clean, responsive admin UI with Tailwind CSS + Alpine.js
-- **API Ready** — Laravel Sanctum for token-based API authentication
-- **Caching** — Built-in role/permission caching for performance
+- **Admin Panel** — Professional admin UI with [Mazer](https://github.com/zuramai/mazer) (Bootstrap 5)
+- **API Ready** — Laravel Sanctum for token-based API authentication with RBAC middleware
+- **Caching** — Built-in role/permission caching with automatic invalidation
 - **Blade Directives** — `@role`, `@permission`, `@superadmin` directives
 - **Middleware** — `role:admin`, `permission:users.create` route middleware
+- **Form Request Validation** — Dedicated request classes for all admin operations
+- **Rate Limiting** — Built-in throttle on authentication routes
+- **Feature Tests** — Comprehensive test suite for roles, permissions, middleware, and API
 - **Artisan Commands** — Quick setup with `php artisan rbac:setup`
 
 ## Requirements
@@ -23,7 +27,7 @@ A scalable, production-ready Role-Based Access Control (RBAC) template built wit
 - PHP 8.2+
 - Composer
 - SQLite / MySQL / PostgreSQL
-- Node.js (optional, for asset compilation)
+- Node.js (optional, for frontend asset compilation)
 
 ## Quick Start
 
@@ -72,6 +76,7 @@ return [
     'cache' => [
         'enabled' => true,
         'ttl' => 3600,
+        'prefix' => 'rbac_',
     ],
 
     'activity_log' => [
@@ -107,6 +112,7 @@ $user->hasRole('admin');           // true/false
 $user->hasRole('admin|editor');    // has any
 $user->hasAllRoles(['admin', 'editor']); // has all
 $user->isSuperAdmin();             // true/false
+$user->getRoleLevel();             // highest level (int)
 ```
 
 ### Working with Permissions
@@ -175,6 +181,62 @@ Route::middleware('role:admin|manager')->group(function () {
 @endanyrole
 ```
 
+### Policies
+
+The template includes Laravel Policies that integrate with the RBAC system:
+
+```php
+// In controllers
+$this->authorize('viewAny', User::class);
+$this->authorize('update', $user);
+$this->authorize('delete', $role);
+
+// In Blade
+@can('update', $user)
+    <a href="{{ route('admin.users.edit', $user) }}">Edit</a>
+@endcan
+
+// Super admin automatically bypasses all policy checks via Gate::before()
+```
+
+### Contracts/Interfaces
+
+The template provides interfaces for type-hinting:
+
+```php
+use App\Contracts\HasRolesInterface;
+use App\Contracts\HasPermissionsInterface;
+
+// Your User model implements both
+class User extends Authenticatable implements HasRolesInterface, HasPermissionsInterface
+{
+    use HasRoles, HasPermissions;
+}
+```
+
+## API Authentication
+
+This template includes Laravel Sanctum with RBAC-protected API routes:
+
+```bash
+# Available API endpoints (requires Bearer token)
+GET /api/user              # Current user profile with roles
+GET /api/user/permissions  # User's permissions and roles list
+
+# Admin API (requires admin role)
+GET /api/admin/users       # List users (paginated)
+GET /api/admin/roles       # List roles with permissions
+GET /api/admin/permissions # List permissions grouped by module
+```
+
+```php
+// Create a token
+$token = $user->createToken('api-token')->plainTextToken;
+
+// Use in requests
+Authorization: Bearer {token}
+```
+
 ## Socialite Setup
 
 ### Google
@@ -219,7 +281,7 @@ GITHUB_REDIRECT_URI=${APP_URL}/auth/github/callback
 ],
 ```
 
-3. Install the provider package if needed (some require additional packages).
+3. Install the provider package if needed.
 
 ### Login URLs
 
@@ -234,6 +296,13 @@ GET /auth/github/callback   → Handles callback
 
 Access the admin panel at `/admin` (requires `super-admin` or `admin` role).
 
+The admin panel uses [Mazer](https://github.com/zuramai/mazer) — a free Bootstrap 5 admin dashboard template with:
+
+- Responsive sidebar navigation
+- Dark mode support
+- Clean card-based layouts
+- Bootstrap Icons
+
 ### Features:
 
 - **Dashboard** — Overview stats and recent activity
@@ -241,6 +310,37 @@ Access the admin panel at `/admin` (requires `super-admin` or `admin` role).
 - **Roles** — CRUD, permission assignment, hierarchical levels
 - **Permissions** — CRUD, module-based grouping
 - **Activity Log** — Full audit trail with filtering
+
+## Architecture
+
+```
+app/
+├── Console/Commands/RbacSetup.php      # Setup artisan command
+├── Contracts/                          # Interfaces
+│   ├── HasPermissionsInterface.php
+│   └── HasRolesInterface.php
+├── Http/
+│   ├── Controllers/
+│   │   ├── Admin/                      # Admin CRUD controllers
+│   │   └── Auth/                       # Auth + Socialite controllers
+│   ├── Middleware/
+│   │   ├── CheckPermission.php
+│   │   └── CheckRole.php
+│   └── Requests/Admin/                 # Form Request validation
+├── Models/
+│   ├── Permission.php
+│   ├── Role.php
+│   └── User.php
+├── Observers/RoleObserver.php          # Cache invalidation
+├── Policies/                           # Authorization policies
+│   ├── PermissionPolicy.php
+│   ├── RolePolicy.php
+│   └── UserPolicy.php
+├── Providers/RbacServiceProvider.php   # Middleware, policies, directives
+└── Traits/
+    ├── HasPermissions.php
+    └── HasRoles.php
+```
 
 ## Database Structure
 
@@ -292,6 +392,26 @@ php artisan rbac:setup --fresh
 php artisan rbac:setup --admin-email=admin@myapp.com --admin-password=secret123
 ```
 
+## Testing
+
+```bash
+# Run all tests
+php artisan test
+
+# Run specific test files
+php artisan test --filter=RoleTest
+php artisan test --filter=PermissionTest
+php artisan test --filter=MiddlewareTest
+php artisan test --filter=ApiAuthTest
+```
+
+### Test Coverage:
+
+- **RoleTest** — Role assignment, removal, sync, pipe-separator check, level, inactive roles
+- **PermissionTest** — Direct permissions, role permissions, super admin bypass, module grouping
+- **MiddlewareTest** — Role/permission middleware blocking, guest redirect, throttle
+- **ApiAuthTest** — Sanctum authentication, admin API access control
+
 ## Extending
 
 ### Adding New Permissions
@@ -321,7 +441,7 @@ Add to `database/seeders/RoleSeeder.php`:
 
 ### Custom Middleware
 
-You can create custom middleware combining roles and permissions:
+You can combine roles and permissions:
 
 ```php
 Route::middleware(['auth', 'role:admin', 'permission:users.create'])->group(function () {
@@ -329,26 +449,24 @@ Route::middleware(['auth', 'role:admin', 'permission:users.create'])->group(func
 });
 ```
 
-## API Authentication
+### Cache Invalidation
 
-This template includes Laravel Sanctum for API authentication:
+Cache is automatically invalidated when:
 
-```bash
-# Create a token
-$token = $user->createToken('api-token')->plainTextToken;
-
-# Use in requests
-Authorization: Bearer {token}
-```
+- A user's roles are changed (`assignRole`, `removeRole`, `syncRoles`)
+- A user's direct permissions are changed (`givePermission`, `revokePermission`)
+- A role is updated or deleted (via `RoleObserver`)
+- A role's permissions are synced (via `RoleObserver::clearCacheForRole()`)
 
 ## Tech Stack
 
 - **Laravel 12** — PHP Framework
-- **Tailwind CSS** — Utility-first CSS (via CDN)
-- **Alpine.js** — Lightweight JS framework
+- **Mazer** — Bootstrap 5 Admin Dashboard (admin panel)
+- **Tailwind CSS** — Utility-first CSS (frontend/public pages via Vite)
 - **Laravel Socialite** — Social authentication
 - **Laravel Sanctum** — API authentication
 - **Spatie Activity Log** — Audit trail
+- **PHPUnit** — Testing framework
 
 ## Contributing
 

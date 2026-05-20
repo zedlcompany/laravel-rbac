@@ -1,78 +1,120 @@
 @extends('layouts.admin')
 
-@section('title', 'Users Management')
+@section('title', 'Users')
+@section('subtitle', 'Manage system users')
+
+@section('breadcrumb')
+<li class="breadcrumb-item active" aria-current="page">Users</li>
+@endsection
 
 @section('content')
-<div class="flex items-center justify-between mb-6">
-    <form method="GET" class="flex gap-3">
-        <input type="text" name="search" value="{{ request('search') }}" placeholder="Search users..." class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-        <select name="role" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-            <option value="">All Roles</option>
-            @foreach($roles as $role)
-            <option value="{{ $role->slug }}" {{ request('role') == $role->slug ? 'selected' : '' }}>{{ $role->name }}</option>
-            @endforeach
-        </select>
-        <button type="submit" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700">Filter</button>
-    </form>
-    <a href="{{ route('admin.users.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">+ Add User</a>
-</div>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="card-title">User List</h4>
+        @permission('users.create')
+        <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Add User
+        </a>
+        @endpermission
+    </div>
+    <div class="card-body">
+        <!-- Filters -->
+        <form method="GET" action="{{ route('admin.users.index') }}" class="row g-3 mb-4">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search name or email..." value="{{ request('search') }}">
+            </div>
+            <div class="col-md-3">
+                <select name="role" class="form-select">
+                    <option value="">All Roles</option>
+                    @foreach($roles as $role)
+                    <option value="{{ $role->slug }}" {{ request('role') == $role->slug ? 'selected' : '' }}>{{ $role->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+            @if(request('search') || request('role'))
+            <div class="col-md-2">
+                <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary w-100">Clear</a>
+            </div>
+            @endif
+        </form>
 
-<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-    <table class="w-full">
-        <thead class="bg-gray-50 border-b">
-            <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roles</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y">
-            @forelse($users as $user)
-            <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                        <img src="{{ $user->avatar_url }}" alt="" class="w-8 h-8 rounded-full">
-                        <span class="font-medium text-gray-900">{{ $user->name }}</span>
-                    </div>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $user->email }}</td>
-                <td class="px-6 py-4">
-                    <div class="flex flex-wrap gap-1">
-                        @foreach($user->roles as $role)
-                        <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">{{ $role->name }}</span>
-                        @endforeach
-                    </div>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">
-                    {{ $user->provider ? ucfirst($user->provider) : 'Email' }}
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $user->created_at->format('M d, Y') }}</td>
-                <td class="px-6 py-4 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                        <a href="{{ route('admin.users.edit', $user) }}" class="text-sm text-blue-600 hover:text-blue-800">Edit</a>
-                        @if($user->id !== auth()->id())
-                        <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Are you sure?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete</button>
-                        </form>
-                        @endif
-                    </div>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
+        <!-- Table -->
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Roles</th>
+                        <th>Provider</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($users as $user)
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar avatar-md me-3">
+                                    <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}">
+                                </div>
+                                <span class="fw-bold">{{ $user->name }}</span>
+                            </div>
+                        </td>
+                        <td>{{ $user->email }}</td>
+                        <td>
+                            @foreach($user->roles as $role)
+                            <span class="badge bg-light-primary">{{ $role->name }}</span>
+                            @endforeach
+                        </td>
+                        <td>
+                            @if($user->provider)
+                            <span class="badge bg-light-info">{{ ucfirst($user->provider) }}</span>
+                            @else
+                            <span class="badge bg-light-secondary">Email</span>
+                            @endif
+                        </td>
+                        <td><small>{{ $user->created_at->format('M d, Y') }}</small></td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                @permission('users.edit')
+                                <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                @endpermission
+                                @permission('users.delete')
+                                @if($user->id !== auth()->id())
+                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                @endif
+                                @endpermission
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-<div class="mt-4">
-    {{ $users->withQueryString()->links() }}
+        <!-- Pagination -->
+        <div class="d-flex justify-content-center mt-3">
+            {{ $users->withQueryString()->links() }}
+        </div>
+    </div>
 </div>
 @endsection

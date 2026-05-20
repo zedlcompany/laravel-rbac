@@ -2,11 +2,23 @@
 
 namespace App\Providers;
 
-use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\CheckRole;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\User;
+use App\Observers\RoleObserver;
+use App\Policies\PermissionPolicy;
+use App\Policies\RolePolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+
+/**
+ * RBAC Service Provider
+ *
+ * Registers observers, policies, Gate rules, and Blade directives
+ * for the RBAC system. Middleware aliases are registered in bootstrap/app.php.
+ */
 
 class RbacServiceProvider extends ServiceProvider
 {
@@ -26,17 +38,40 @@ class RbacServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerMiddleware();
+        $this->registerObservers();
+        $this->registerPolicies();
         $this->registerBladeDirectives();
+        $this->registerSuperAdminGate();
     }
 
     /**
-     * Register RBAC middleware aliases.
+     * Register model observers.
      */
-    protected function registerMiddleware(): void
+    protected function registerObservers(): void
     {
-        Route::aliasMiddleware('role', CheckRole::class);
-        Route::aliasMiddleware('permission', CheckPermission::class);
+        Role::observe(RoleObserver::class);
+    }
+
+    /**
+     * Register policies.
+     */
+    protected function registerPolicies(): void
+    {
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Permission::class, PermissionPolicy::class);
+    }
+
+    /**
+     * Super admin bypasses all Gate checks.
+     */
+    protected function registerSuperAdminGate(): void
+    {
+        Gate::before(function ($user, $ability) {
+            if ($user->isSuperAdmin()) {
+                return true;
+            }
+        });
     }
 
     /**

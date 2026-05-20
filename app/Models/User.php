@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\HasPermissionsInterface;
+use App\Contracts\HasRolesInterface;
 use App\Traits\HasPermissions;
 use App\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-class User extends Authenticatable
+class User extends Authenticatable implements HasRolesInterface, HasPermissionsInterface
 {
     use HasApiTokens, HasFactory, HasPermissions, HasRoles, LogsActivity, Notifiable;
 

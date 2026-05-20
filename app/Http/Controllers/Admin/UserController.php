@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', User::class);
+
         $query = User::with('roles');
 
         if ($search = $request->get('search')) {
@@ -38,20 +41,16 @@ class UserController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', User::class);
+
         $roles = Role::active()->get();
 
         return view('admin.users.create', compact('roles'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreUserRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'roles' => ['array'],
-            'roles.*' => ['exists:roles,id'],
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
             'name' => $validated['name'],
@@ -76,21 +75,19 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
+        $this->authorize('update', $user);
+
         $roles = Role::active()->get();
         $userRoles = $user->roles->pluck('id')->toArray();
 
         return view('admin.users.edit', compact('user', 'roles', 'userRoles'));
     }
 
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            'roles' => ['array'],
-            'roles.*' => ['exists:roles,id'],
-        ]);
+        $this->authorize('update', $user);
+
+        $validated = $request->validated();
 
         $user->update([
             'name' => $validated['name'],
@@ -118,9 +115,7 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
-        if ($user->id === auth()->id()) {
-            return back()->with('error', 'You cannot delete your own account.');
-        }
+        $this->authorize('delete', $user);
 
         activity('rbac')
             ->performedOn($user)

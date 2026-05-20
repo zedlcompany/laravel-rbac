@@ -1,63 +1,101 @@
 @extends('layouts.admin')
 
 @section('title', 'Create Role')
+@section('subtitle', 'Add a new role to the system')
+
+@section('breadcrumb')
+<li class="breadcrumb-item"><a href="{{ route('admin.roles.index') }}">Roles</a></li>
+<li class="breadcrumb-item active" aria-current="page">Create</li>
+@endsection
 
 @section('content')
-<div class="max-w-2xl">
-    <div class="bg-white rounded-xl shadow-sm border p-6">
+<div class="card">
+    <div class="card-header">
+        <h4 class="card-title">New Role</h4>
+    </div>
+    <div class="card-body">
         <form method="POST" action="{{ route('admin.roles.store') }}">
             @csrf
-            <div class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                        <input type="text" name="name" id="name" value="{{ old('name') }}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 @error('name') border-red-500 @enderror">
-                        @error('name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label for="slug" class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-                        <input type="text" name="slug" id="slug" value="{{ old('slug') }}" required placeholder="e.g. content-manager" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 @error('slug') border-red-500 @enderror">
-                        @error('slug')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group mb-3">
+                        <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" id="name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required>
+                        @error('name')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
-                <div>
-                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea name="description" id="description" rows="2" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">{{ old('description') }}</textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="level" class="block text-sm font-medium text-gray-700 mb-1">Level</label>
-                        <input type="number" name="level" id="level" value="{{ old('level', 0) }}" min="0" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-400 mt-1">Higher level = more authority</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <label class="flex items-center gap-2 mt-2">
-                            <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm">Active</span>
-                        </label>
+                <div class="col-md-4">
+                    <div class="form-group mb-3">
+                        <label for="slug" class="form-label">Slug <span class="text-danger">*</span></label>
+                        <input type="text" id="slug" name="slug" class="form-control @error('slug') is-invalid @enderror" value="{{ old('slug') }}" placeholder="e.g. content-manager" required>
+                        @error('slug')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
-                    @foreach($permissions as $module => $modulePermissions)
-                    <div class="mb-3">
-                        <p class="text-xs font-semibold text-gray-500 uppercase mb-1">{{ $module }}</p>
-                        <div class="grid grid-cols-2 gap-1">
+                <div class="col-md-2">
+                    <div class="form-group mb-3">
+                        <label for="level" class="form-label">Level <span class="text-danger">*</span></label>
+                        <input type="number" id="level" name="level" class="form-control @error('level') is-invalid @enderror" value="{{ old('level', 10) }}" min="0" max="100" required>
+                        @error('level')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group mb-3">
+                        <label for="is_active" class="form-label">Status</label>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}>
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control @error('description') is-invalid @enderror" rows="2">{{ old('description') }}</textarea>
+                @error('description')
+                <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label">Permissions</label>
+                @foreach($permissions as $module => $modulePermissions)
+                <div class="card mb-2">
+                    <div class="card-header py-2">
+                        <h6 class="mb-0 text-capitalize">
+                            <i class="bi bi-folder"></i> {{ $module }}
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row">
                             @foreach($modulePermissions as $permission)
-                            <label class="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer">
-                                <input type="checkbox" name="permissions[]" value="{{ $permission->id }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                <span class="text-sm">{{ $permission->name }}</span>
-                            </label>
+                            <div class="col-md-3 col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="permissions[]" value="{{ $permission->id }}" id="perm_{{ $permission->id }}" {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="perm_{{ $permission->id }}">
+                                        {{ $permission->name }}
+                                    </label>
+                                </div>
+                            </div>
                             @endforeach
                         </div>
                     </div>
-                    @endforeach
                 </div>
+                @endforeach
             </div>
-            <div class="flex items-center gap-3 mt-6 pt-4 border-t">
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Role</button>
-                <a href="{{ route('admin.roles.index') }}" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</a>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Create Role
+                </button>
+                <a href="{{ route('admin.roles.index') }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>

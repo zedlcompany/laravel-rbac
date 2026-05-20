@@ -3,17 +3,21 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreRoleRequest;
+use App\Http\Requests\Admin\UpdateRoleRequest;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Observers\RoleObserver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RoleController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Role::class);
+
         $query = Role::withCount(['users', 'permissions']);
 
         if ($search = $request->get('search')) {
@@ -30,22 +34,16 @@ class RoleController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', Role::class);
+
         $permissions = Permission::all()->groupBy('module');
 
         return view('admin.roles.create', compact('permissions'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreRoleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'unique:roles', 'regex:/^[a-z0-9\-]+$/'],
-            'description' => ['nullable', 'string', 'max:500'],
-            'level' => ['required', 'integer', 'min:0'],
-            'is_active' => ['boolean'],
-            'permissions' => ['array'],
-            'permissions.*' => ['exists:permissions,id'],
-        ]);
+        $validated = $request->validated();
 
         $role = Role::create([
             'name' => $validated['name'],
@@ -65,23 +63,19 @@ class RoleController extends Controller
 
     public function edit(Role $role): View
     {
+        $this->authorize('update', $role);
+
         $permissions = Permission::all()->groupBy('module');
         $rolePermissions = $role->permissions->pluck('id')->toArray();
 
         return view('admin.roles.edit', compact('role', 'permissions', 'rolePermissions'));
     }
 
-    public function update(Request $request, Role $role): RedirectResponse
+    public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($role->id), 'regex:/^[a-z0-9\-]+$/'],
-            'description' => ['nullable', 'string', 'max:500'],
-            'level' => ['required', 'integer', 'min:0'],
-            'is_active' => ['boolean'],
-            'permissions' => ['array'],
-            'permissions.*' => ['exists:permissions,id'],
-        ]);
+        $this->authorize('update', $role);
+
+        $validated = $request->validated();
 
         $role->update([
             'name' => $validated['name'],
@@ -93,6 +87,8 @@ class RoleController extends Controller
 
         if (isset($validated['permissions'])) {
             $role->permissions()->sync($validated['permissions']);
+            // Clear cache for all users with this role
+            RoleObserver::clearCacheForRole($role);
         }
 
         return redirect()->route('admin.roles.index')
@@ -101,6 +97,8 @@ class RoleController extends Controller
 
     public function destroy(Role $role): RedirectResponse
     {
+        $this->authorize('delete', $role);
+
         if ($role->slug === config('rbac.super_admin_role')) {
             return back()->with('error', 'Cannot delete the super admin role.');
         }

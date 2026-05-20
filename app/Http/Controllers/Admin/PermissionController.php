@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StorePermissionRequest;
+use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Models\Permission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class PermissionController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Permission::class);
+
         $query = Permission::withCount('roles');
 
         if ($search = $request->get('search')) {
@@ -34,19 +37,16 @@ class PermissionController extends Controller
 
     public function create(): View
     {
+        $this->authorize('create', Permission::class);
+
         $modules = Permission::getModules();
 
         return view('admin.permissions.create', compact('modules'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StorePermissionRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'unique:permissions', 'regex:/^[a-z0-9\.\-]+$/'],
-            'description' => ['nullable', 'string', 'max:500'],
-            'module' => ['required', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         Permission::create($validated);
 
@@ -56,19 +56,18 @@ class PermissionController extends Controller
 
     public function edit(Permission $permission): View
     {
+        $this->authorize('update', $permission);
+
         $modules = Permission::getModules();
 
         return view('admin.permissions.edit', compact('permission', 'modules'));
     }
 
-    public function update(Request $request, Permission $permission): RedirectResponse
+    public function update(UpdatePermissionRequest $request, Permission $permission): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', Rule::unique('permissions')->ignore($permission->id), 'regex:/^[a-z0-9\.\-]+$/'],
-            'description' => ['nullable', 'string', 'max:500'],
-            'module' => ['required', 'string', 'max:255'],
-        ]);
+        $this->authorize('update', $permission);
+
+        $validated = $request->validated();
 
         $permission->update($validated);
 
@@ -78,6 +77,8 @@ class PermissionController extends Controller
 
     public function destroy(Permission $permission): RedirectResponse
     {
+        $this->authorize('delete', $permission);
+
         if ($permission->roles()->count() > 0) {
             return back()->with('error', 'Cannot delete a permission that is assigned to roles.');
         }
