@@ -131,7 +131,7 @@
                         </svg>
                     </div>
                     <h3 class="text-lg font-semibold mb-2">Developer Friendly</h3>
-                    <p class="text-gray-400 text-sm">Blade directives (@role, @permission), middleware, Artisan commands, and comprehensive config file.</p>
+                    <p class="text-gray-400 text-sm">Blade directives (@@role, @@permission), middleware, Artisan commands, and comprehensive config file.</p>
                 </div>
             </div>
         </div>
