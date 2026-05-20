@@ -5,6 +5,9 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,23 +21,29 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Auth routes (using Laravel's built-in auth)
-Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
-});
-
 /*
 |--------------------------------------------------------------------------
-| Socialite Routes
+| Authentication Routes
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login']);
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register']);
+
+    // Socialite
     Route::get('/auth/{provider}/redirect', [SocialiteController::class, 'redirect'])
         ->name('socialite.redirect');
     Route::get('/auth/{provider}/callback', [SocialiteController::class, 'callback'])
         ->name('socialite.callback');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [LogoutController::class, 'logout'])->name('logout');
+    Route::get('/dashboard', function () {
+        return view('dashboard');
+    })->name('dashboard');
 });
 
 /*
@@ -46,19 +55,10 @@ Route::prefix(config('rbac.admin.prefix', 'admin'))
     ->name('admin.')
     ->middleware(config('rbac.admin.middleware', ['web', 'auth', 'role:super-admin|admin']))
     ->group(function () {
-        // Dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-
-        // Users Management
         Route::resource('users', UserController::class)->except(['show']);
-
-        // Roles Management
         Route::resource('roles', RoleController::class)->except(['show']);
-
-        // Permissions Management
         Route::resource('permissions', PermissionController::class)->except(['show']);
-
-        // Activity Log
         Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/activity-log/{activity}', [ActivityLogController::class, 'show'])->name('activity-log.show');
     });
