@@ -1,0 +1,16 @@
+# CodeRabbit AI Configuration
+# Install the app: https://github.com/apps/coderabbitai
+
+language: "id"
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+chat:
+  auto_reply: true
